@@ -1,0 +1,2 @@
+date,symbol,upper_limit,lower_limit,no_limit,source,note
+2025-01-03,600000.SH,11.00,9.00,false,synthetic_test_only,合成示例不可用于真实行情
