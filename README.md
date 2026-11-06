@@ -102,4 +102,4 @@ python -m etf_limit_impact analyze --run-dir "运行目录" --limits-csv "正式
 
 只发布源代码、文档和合成测试数据。真实行情、PCF、回测结果和本地路径配置不上传，`reports/`、`data/`、Parquet 及缓存已在 `.gitignore` 排除。
 
-测试包含触价与缺失分钟、信号时刻不读取未来、两方向、单位倍数、代理费、部分成交期限估值、固定现金差额、未定价、CLI、回测联动和原文件不变检查。详见 [需求基线](docs/requirements.md) 和 [数据口径](docs/data_contract.md)。
+测试包含触价与缺失分钟、信号时刻不读取未来、两方向、单位倍数、代理费、部分成交期限估值、固定现金差额、未定价、CLI、回测联动和原文件不变检查。首版 16 项自动测试通过，并对 654 笔既有真实交易完成逐股现金替代盈亏对账。详见 [验证记录](docs/validation.md)、[需求基线](docs/requirements.md) 和 [数据口径](docs/data_contract.md)。
