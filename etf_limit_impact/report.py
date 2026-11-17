@@ -117,6 +117,16 @@ STOCK_COLUMNS = [('symbol', '股票代码', None), ('stock_name', '股票名称'
     ('fill_times', '原实际成交时间', None), ('limit_evidence', '限价依据', None)]
 
 
+STOCK_COLUMNS += [
+    ('stock_pnl', '个股盈亏（元，含费）', money),
+    ('etf_cost_impact', 'ETF整篮成本影响（元，含费）', money),
+    ('etf_cost_impact_per_share', '每份ETF成本影响（元/份）', lambda v: '未确定' if v is None else f'{v:+.8f}'),
+    ('etf_cost_impact_ratio', '占信号整篮估值比例', lambda v: '未确定' if v is None else f'{v:+.6%}')]
+
+COST_NOTE = ('成本影响相对于信号估值，等于个股含费盈亏的相反数；正值表示申购成本增加或赎回净回收减少，'
+             '负值表示成本减少。每份影响除以本笔ETF份数，比例除以信号IOPV乘ETF份数。'
+             '这是已有盈亏的解释，不再次计入总盈亏，也不代表ETF市场价格变动。')
+
 def render_report(output, run_dir, summaries, limit_rows, buckets, stocks, meta):
     scatter(output, limit_rows)
     by_trade = defaultdict(list)
@@ -126,11 +136,14 @@ def render_report(output, run_dir, summaries, limit_rows, buckets, stocks, meta)
     detail_dir.mkdir()
     for summary in summaries:
         tid = summary['trade_id']
-        rows = by_trade[tid]
+        all_rows = by_trade[tid]
+        hidden = [r for r in all_rows if r.get('fee_only') is True]
+        rows = [r for r in all_rows if r.get('fee_only') is not True]
         body = f'<p><a href="../report.html">返回分析总览</a></p><h1>{escape(tid)} · {translated(summary["side"])}</h1>'
         body += f'<p>发起时间：{escape(str(summary["opened_at"]))}。原现金替代盈亏：{money(summary["cash_substitution_pnl"])} 元。</p>'
         body += '<p class="notice">下表包含申请日内曾触价的成分股；信号后发生的触价仅供事后描述。实物买卖股票的现金替代贡献为零，其价格变化另列。</p>'
-        body += table(rows, STOCK_COLUMNS) if rows else '<p>当前有效限价数据中，未观察到申请日内触价股票。请同时查看缺失覆盖。</p>'
+        body += f'<p>{COST_NOTE}</p><p>已隐藏仅税费行 {len(hidden)} 条，税费 {money(sum((r["stock_fees"] for r in hidden), Decimal(0)))} 元。成交、税费、总盈亏和完整CSV仍保留。</p>'
+        body += table(rows, STOCK_COLUMNS) if rows else ('<p>本笔触价股票均仅产生税费，明细已隐藏。</p>' if hidden else '<p>当前有效限价数据中，未观察到申请日内触价股票。请同时查看缺失覆盖。</p>')
         body += (f'<p>无法确认限价的股票：{summary["unknown_limit_stock_count"]} 只；'
                  f'现金替代未完整定价／缺信号基准：{summary["cash_unpriced_stock_count"]} 只。'
                  f'对账：{translated(summary["reconciliation"])}。</p>')
