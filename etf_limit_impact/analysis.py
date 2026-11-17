@@ -9,6 +9,8 @@ from etf_limit_impact.data import (Market, Run, ZERO, dump_json, moment, number,
                                   read_pcf, write_csv)
 from etf_limit_impact.limits import LimitRules, observe_at, observe_day, weight_bucket
 
+from etf_limit_impact.stock_cost import cost_metrics
+
 TOLERANCE = Decimal('.000001')
 
 
@@ -67,7 +69,9 @@ def contribution(run, trade, component, signal_price):
         cash_pnl = baseline-actual if side == 'CREATE' else actual-baseline
     return dict(route=route, stock_quantity=quantity, signal_cash_reference=baseline,
         actual_cash_cost_or_receipt=actual, cash_substitution_pnl=cash_pnl,
-        proxy_fees=fees if route == 'cash_proxy' else ZERO,
+        proxy_fees=fees if route == 'cash_proxy' else ZERO, stock_fees=fees,
+        stock_pnl=(physical_effect-fees if physical_effect is not None and fees is not None else None)
+                  if route == 'physical' else cash_pnl,
         physical_price_effect=physical_effect, filled_stock_quantity=actual_quantity,
         valued_stock_quantity=valued_quantity, cash_priced=priced if route != 'physical' else None,
         fill_times='; '.join(sorted(set(r['ts'] for r in relevant))),
@@ -208,7 +212,7 @@ def analyze(run_dir, output_dir, *, limits_csv=None, allow_estimated=True, start
                     date=pcf.trading_day, etf_code=pcf.code, side=trade['side'], symbol=component.symbol,
                     stock_name=component.name, pcf_stock_quantity=component.quantity,
                     quantity_units=number(trade['quantity_units']), signal_stock_price=signal_price,
-                    signal_stock_value=value, signal_basket_value=denominator, weight=weight,
+                    signal_stock_value=value, signal_basket_value=denominator, etf_shares=etf_shares, weight=weight,
                     weight_bucket=weight_bucket(weight), signal_status=signal_status,
                     application_status=application_status,
                     signal_touched=signal_status in {'UP', 'DOWN'} if signal_status != 'UNKNOWN' else None,
@@ -218,6 +222,7 @@ def analyze(run_dir, output_dir, *, limits_csv=None, allow_estimated=True, start
                     day_down_spans=event['down_spans'], limit_evidence=signal_bounds.evidence,
                     limit_note=signal_bounds.note, day_limit_evidence=event['evidence'],
                     day_limit_note=event['limit_note'], **details)
+                row.update(cost_metrics(row['stock_pnl'], row['stock_fees'], etf_shares, denominator))
                 rows.append(row)
             attribution = run.attribution.get(trade['trade_id'])
             if attribution is None:
